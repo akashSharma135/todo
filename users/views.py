@@ -1,3 +1,4 @@
+from django.db.models import manager
 from .models import Assignments, NewUser
 from rest_framework.views import APIView
 from rest_framework import status
@@ -6,8 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.authentication import authenticate
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .serializers import AssignmentsSerializer, NewUserSerializer
-from tasks.models import Task
-
+from .utils import admin_required
 
 class UserRegisterView(APIView):
     
@@ -91,22 +91,20 @@ class UserDetailView(APIView):
         serializer = NewUserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class UserDeleteView(APIView):
+    permission_classes = [admin_required]
     def delete(self, request, pk, format=None):
         user = NewUser.objects.get(username=request.user)
-        if user.is_superuser is False:
-            return Response({"msg": "You do not have permission to perform delete operation"}, status=status.HTTP_400_BAD_REQUEST)
         user = self.get_object(pk=pk)
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AssignManagerView(APIView):
-    permission_classes=[IsAdminUser]
+    permission_classes=[admin_required]
     def post(self, request):
         try:
-            if request.user.role != 'admin':
-                return Response({"msg": "You do not have permission to perform delete operation"}, status=status.HTTP_400_BAD_REQUEST)
-            
             manager_username = request.data.get('manager_username')
             user_username = request.data.get('user_username')
             
@@ -133,23 +131,23 @@ class AssignManagerView(APIView):
 
 
 class UnassignManagerView(APIView):
-    permission_classes = [IsAdminUser]
-    def delete(self, request, pk):
-        assignments = Assignments.objects.filter(pk=pk)
-        serializer = AssignmentsSerializer(assignments, many=True)
-        # delete the task asssigned by the manager
-        task_id = serializer.data[0].get('task_id')
-        task = Task.objects.filter(id=task_id)
-        task.delete()
-        # unassign the manager
-        assignments.delete()
+    permission_classes = [admin_required]
+    def delete(self, request):
+        manager_id = request.data.get('manager_id')
+        user_id = request.data.get('user_id')
+        obj = Assignments.objects.filter(manager=manager_id)
+
+        serializer = AssignmentsSerializer(obj, many=True)
+        if serializer.data[0].get('user') != user_id:
+            return Response({"error": "manager not assigned to this user"}, status=status.HTTP_400_BAD_REQUEST)
+
+        obj.delete()
         return Response({"msg": "manager unassigned"}, status=status.HTTP_200_OK)
 
 
 class AssignmentsView(APIView):
     def get(self, request):
         assignment = Assignments.objects.all()
-        print(assignment)
         serializer = AssignmentsSerializer(assignment, many=True)
         return Response(serializer.data)
 

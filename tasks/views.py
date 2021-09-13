@@ -8,19 +8,19 @@ from users.serializers import AssignmentsSerializer
 from users.models import Assignments
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .serializers import TaskSerializer
+from rest_framework.parsers import JSONParser
 
 # task view
 class TaskView(APIView):
     permission_classes = [IsAdminUser]
 
     def post(self, request):
-        task_title = request.data.get('task_title')
-        task_description = request.data.get('task_description')
-
-        task = Task.objects.create(task_title=task_title, task_description=task_description)
-        task.save()
-
-        return Response({"msg": "Task added successfully"}, status=status.HTTP_200_OK)
+        data = JSONParser().parse(request)
+        serializer = TaskSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=400)
 
     
 # View tasks
@@ -67,3 +67,13 @@ class UpdateTaskStatusView(APIView):
             task_status.update(task_status=status)
         return Response({"msg": "Task status updated!"})
         
+
+class DeleteTaskView(APIView):
+    permission_classes = [IsAdminUser]
+    def delete(self, request, pk):
+        try:
+            task = Task.objects.filter(pk=pk)
+            task.delete()
+            return Response({"msg": "Task deleted!"}, status=status.HTTP_200_OK)
+        except Task.DoesNotExist:
+            return Response({"error": "No task found"}, status=status.HTTP_404_NOT_FOUND)

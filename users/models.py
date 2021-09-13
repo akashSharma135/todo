@@ -52,7 +52,7 @@ class NewUser(AbstractBaseUser, PermissionsMixin):
 class Assignments(models.Model):
     manager = models.ForeignKey(NewUser, related_name='manager', on_delete=models.CASCADE)
     user = models.ForeignKey(NewUser, related_name='user', on_delete=models.CASCADE)
-    task_id = models.ForeignKey(Task, null=True, related_name='task', on_delete=models.SET_NULL)
+    task_id = models.ForeignKey(Task, null=True, related_name='task', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ("manager", "user")
